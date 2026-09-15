@@ -1,0 +1,40 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 270000           # 4.5 min — Neon se kam rakhna zaroori hai
+      connection-timeout: 30000
+      keepalive-time: 120000         # 2 min — connection ko alive rakhne ke liye ping
+      validation-timeout: 5000
+
+  data:                              # implements Redis from upstash.com
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: true
+
+  cache:
+    type: redis
+
+  jpa:
+    hibernate:
+      ddl-auto: update               # dev ke liye theek hai, prod mein Flyway use karna
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
