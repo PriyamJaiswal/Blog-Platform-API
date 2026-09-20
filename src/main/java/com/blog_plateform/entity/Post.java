@@ -2,6 +2,7 @@ package com.blog_plateform.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Entity
 @Data
@@ -20,4 +21,11 @@ public class Post {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
+
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
