@@ -5,6 +5,7 @@ import com.blog_plateform.entity.Post;
 import com.blog_plateform.entity.User;
 import com.blog_plateform.repository.PostRepo;
 import com.blog_plateform.repository.UserRepo;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -25,5 +26,10 @@ public class PostService {
         post.setContent(request.getContent());
         post.setAuthor(author);
         return postRepo.save(post);
+    }
+
+    public Post getPostById(Long id) {
+        return postRepo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Post not found"));
     }
 }
