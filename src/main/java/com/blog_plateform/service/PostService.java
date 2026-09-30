@@ -7,6 +7,7 @@ import com.blog_plateform.repository.PostRepo;
 import com.blog_plateform.repository.UserRepo;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -31,5 +32,15 @@ public class PostService {
     public Post getPostById(Long id) {
         return postRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Post not found"));
+    }
+
+    public Post updatePost(Long id, PostRequest request, String username) {
+        Post post = getPostById(id);
+        if (!post.getAuthor().getUsername().equals(username)) {
+            throw new AccessDeniedException("You can only edit your own posts");
+        }
+        post.setTitle(request.getTitle());
+        post.setContent(request.getContent());
+        return postRepo.save(post);
     }
 }
