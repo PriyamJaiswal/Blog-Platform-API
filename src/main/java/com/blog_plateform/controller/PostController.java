@@ -31,4 +31,9 @@ public class PostController {
                                          @RequestParam(defaultValue = "10") int size) {
         return postService.getAllPosts(page, size);
     }
+
+    @GetMapping("/{id}")
+    public PostResponse getPost(@PathVariable Long id) {
+        return postService.getPostResponseById(id);
+    }
 }
