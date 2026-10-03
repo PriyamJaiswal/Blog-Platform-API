@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CommentService {
@@ -31,5 +33,9 @@ public class CommentService {
         comment.setPost(post);
         comment.setAuthor(user);
         return commentRepo.save(comment);
+    }
+
+    public List<Comment> getComments(Long postId) {
+        return commentRepo.findByPostId(postId);
     }
 }
