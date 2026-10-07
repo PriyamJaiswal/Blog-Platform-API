@@ -16,6 +16,17 @@ spring:
       keepalive-time: 120000         # 2 min — connection ko alive rakhne ke liye ping
       validation-timeout: 5000
 
+  data:                              # implements Redis from upstash.com
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: true
+
+  cache:
+    type: redis
+
   jpa:
     hibernate:
       ddl-auto: update               # dev ke liye theek hai, prod mein Flyway use karna
