@@ -8,6 +8,7 @@ import com.blog_plateform.repository.LikeRepo;
 import com.blog_plateform.repository.PostRepo;
 import com.blog_plateform.repository.UserRepo;
 import com.blog_plateform.service.PostService;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -104,5 +105,27 @@ class PostServiceTest {
         Post updated = postService.updatePost(1L, req, "priyam");
 
         assertThat(updated.getTitle()).isEqualTo("New Title");
+    }
+
+    @Test
+    void getPostById_shouldThrowWhenNotFound() {
+        when(postRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.getPostById(99L))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void deletePost_shouldThrowWhenNotOwner() {
+        User owner = new User();
+        owner.setUsername("actualOwner");
+        Post post = new Post();
+        post.setId(1L);
+        post.setAuthor(owner);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.deletePost(1L, "intruder"))
+                .isInstanceOf(AccessDeniedException.class);
     }
 }
