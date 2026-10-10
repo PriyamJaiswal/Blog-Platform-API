@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Optional;
 
@@ -64,5 +65,44 @@ class PostServiceTest {
 
         assertThatThrownBy(() -> postService.createPost(req, "ghost"))
                 .isInstanceOf(org.springframework.security.core.userdetails.UsernameNotFoundException.class);
+    }
+
+    @Test
+    void updatePost_shouldThrowWhenNotOwner() {
+        User owner = new User();
+        owner.setUsername("actualOwner");
+        Post post = new Post();
+        post.setId(1L);
+        post.setAuthor(owner);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+
+        PostRequest req = new PostRequest();
+        req.setTitle("Hacked title");
+        req.setContent("Hacked content");
+
+        assertThatThrownBy(() -> postService.updatePost(1L, req, "someoneElse"))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void updatePost_shouldSucceedWhenOwnerMatches() {
+        User owner = new User();
+        owner.setUsername("priyam");
+        Post post = new Post();
+        post.setId(1L);
+        post.setTitle("Old Title");
+        post.setAuthor(owner);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.save(any(Post.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PostRequest req = new PostRequest();
+        req.setTitle("New Title");
+        req.setContent("New Content");
+
+        Post updated = postService.updatePost(1L, req, "priyam");
+
+        assertThat(updated.getTitle()).isEqualTo("New Title");
     }
 }
