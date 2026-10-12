@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,5 +44,13 @@ class PostControllerIT extends AbstractIntegrationTest {
                         .content("{\"title\":\"IT Post\",\"content\":\"IT Content\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("IT Post"));
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedPost() throws Exception {
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"No Auth\",\"content\":\"Should fail\"}"))
+                .andExpect(status().isUnauthorized());
     }
 }
