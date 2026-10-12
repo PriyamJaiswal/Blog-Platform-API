@@ -1,56 +1,141 @@
 package com.blog_plateform.integration;
 
+import com.blog_plateform.entity.User;
+import com.blog_plateform.repository.UserRepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
 class PostControllerIT extends AbstractIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
+    @Autowired private UserRepo userRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
 
-    private String registerAndGetToken(String username) throws Exception {
-        String body = String.format(
-                "{\"username\":\"%s\",\"email\":\"%s@test.com\",\"password\":\"pass1234\"}",
-                username, username);
+    private String token;
 
-        String response = mockMvc.perform(post("/api/auth/register")
+    @BeforeEach
+    void setup() throws Exception {
+        User user = new User();
+        user.setUsername("testuser");
+        user.setEmail("test@test.com");
+        user.setPassword(passwordEncoder.encode("password123"));
+        userRepository.save(user);
+
+        String loginBody = """
+            {"username": "testuser", "password": "password123"}
+            """;
+
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(loginBody))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                .andReturn();
 
-        return new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(response).get("token").asText();
+        String json = result.getResponse().getContentAsString();
+        token = objectMapper.readTree(json).get("token").asText();
     }
 
     @Test
-    void shouldCreateAndFetchPost() throws Exception {
-        String token = registerAndGetToken("ituser1");
+    void createPost_thenGetById_shouldReturnCreatedPost() throws Exception {
+        String postBody = """
+            {"title": "Integration Test Post", "content": "Testing full flow"}
+            """;
 
-        mockMvc.perform(post("/api/posts")
+        MvcResult createResult = mockMvc.perform(post("/api/posts")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"IT Post\",\"content\":\"IT Content\"}"))
+                        .content(postBody))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.title").value("IT Post"));
+                .andReturn();
+
+        Long postId = objectMapper.readTree(createResult.getResponse().getContentAsString())
+                .get("id").asLong();
+
+        mockMvc.perform(get("/api/posts/" + postId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Integration Test Post"));
     }
 
     @Test
-    void shouldRejectUnauthenticatedPost() throws Exception {
+    void createPost_withoutAuth_shouldReturn401() throws Exception {
+        String postBody = """
+            {"title": "Should fail", "content": "No auth"}
+            """;
+
         mockMvc.perform(post("/api/posts")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"No Auth\",\"content\":\"Should fail\"}"))
+                        .content(postBody))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updatePost_byNonOwner_shouldReturn403() throws Exception {
+        // create post as testuser
+        String postBody = """
+            {"title": "Original", "content": "Original content"}
+            """;
+
+        MvcResult createResult = mockMvc.perform(post("/api/posts")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(postBody))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Long postId = objectMapper.readTree(createResult.getResponse().getContentAsString())
+                .get("id").asLong();
+
+        // register second user
+        String registerBody = """
+            {"username": "intruder", "email": "intruder@test.com", "password": "password123"}
+            """;
+
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerBody))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String intruderToken = objectMapper.readTree(registerResult.getResponse().getContentAsString())
+                .get("token").asText();
+
+        String updateBody = """
+            {"title": "Hacked", "content": "Hacked content"}
+            """;
+
+        mockMvc.perform(put("/api/posts/" + postId)
+                        .header("Authorization", "Bearer " + intruderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getFeed_cursorPagination_shouldReturnPostsInDescendingOrder() throws Exception {
+        for (int i = 1; i <= 3; i++) {
+            String body = String.format("""
+                {"title": "Post %d", "content": "Content %d"}
+                """, i, i);
+
+            mockMvc.perform(post("/api/posts")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(get("/api/posts/feed?limit=10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("Post 3"));
     }
 }
